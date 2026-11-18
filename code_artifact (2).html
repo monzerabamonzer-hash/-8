@@ -1,0 +1,2093 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>دامج ملفات الإكسل السريع - يعمل بدون إنترنت</title>
+    <style>
+        /* متغيرات التصميم العصري المستوحى من جداول البيانات */
+        :root {
+            --bg-body: #0b1120;
+            --bg-surface: #131c31;
+            --bg-surface-2: #1e293b;
+            --bg-input: #090e1a;
+            --border: #2e3c54;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --primary: #10b981;
+            --primary-hover: #059669;
+            --primary-soft: rgba(16, 185, 129, 0.14);
+            --accent: #3b82f6;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --radius-lg: 16px;
+            --radius-md: 12px;
+            --radius-sm: 8px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", Tahoma, Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            line-height: 1.6;
+        }
+
+        /* شريط الإشعارات */
+        #toast-box {
+            position: fixed;
+            top: 18px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 92%;
+            max-width: 460px;
+            pointer-events: none;
+        }
+
+        .toast {
+            pointer-events: auto;
+            padding: 13px 18px;
+            border-radius: var(--radius-md);
+            font-size: 0.92rem;
+            font-weight: 600;
+            color: #fff;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            opacity: 0;
+            transform: translateY(-12px);
+            transition: all 0.25s ease;
+        }
+
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast-success { background-color: #059669; border: 1px solid #34d399; }
+        .toast-error { background-color: #dc2626; border: 1px solid #f87171; }
+        .toast-info { background-color: #1e293b; border: 1px solid #475569; }
+
+        /* الرأس */
+        header {
+            background-color: rgba(19, 28, 49, 0.92);
+            border-bottom: 1px solid var(--border);
+            padding: 14px 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+        }
+
+        .header-wrap {
+            max-width: 1120px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: var(--radius-md);
+            background: linear-gradient(135deg, #10b981, #047857);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+        }
+
+        .logo-text h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+
+        .logo-text p {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .badge-offline {
+            background-color: var(--primary-soft);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            padding: 6px 14px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pulse {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #10b981;
+        }
+
+        /* الحاوية الرئيسية */
+        main {
+            max-width: 1120px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        .card {
+            background-color: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.22);
+        }
+
+        .step-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+
+        .step-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.02rem;
+            font-weight: 700;
+        }
+
+        .step-num {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: var(--primary-soft);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        /* منطقة السحب والإفلات */
+        .drop-zone {
+            border: 2px dashed #3b4d6b;
+            background-color: rgba(9, 14, 26, 0.55);
+            border-radius: var(--radius-lg);
+            padding: 32px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: var(--primary);
+            background-color: rgba(16, 185, 129, 0.08);
+        }
+
+        .drop-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background-color: var(--bg-surface-2);
+            color: #34d399;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 4px;
+        }
+
+        .drop-zone h3 {
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        .drop-zone p {
+            font-size: 0.84rem;
+            color: var(--text-muted);
+        }
+
+        /* قائمة الملفات المرفوعة */
+        .file-list {
+            margin-top: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .file-item {
+            background-color: var(--bg-surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 10px 14px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .file-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 200px;
+        }
+
+        .file-badge {
+            background-color: rgba(16, 185, 129, 0.16);
+            color: #34d399;
+            font-size: 0.72rem;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+        }
+
+        .file-name {
+            font-weight: 600;
+            font-size: 0.92rem;
+            word-break: break-all;
+        }
+
+        .file-meta {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .file-controls {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .icon-btn {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            width: 32px;
+            height: 32px;
+            border-radius: var(--radius-sm);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: 0.15s;
+        }
+
+        .icon-btn:hover { background-color: #334155; }
+        .icon-btn.del:hover { background-color: rgba(239, 68, 68, 0.25); color: #f87171; border-color: #ef4444; }
+
+        /* خيارات الدمج */
+        .options-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 14px;
+        }
+
+        .option-card {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+        }
+
+        .option-card:hover { border-color: #475569; }
+        .option-card.active {
+            border-color: var(--primary);
+            background-color: rgba(16, 185, 129, 0.08);
+        }
+
+        .option-card input[type="radio"],
+        .option-card input[type="checkbox"] {
+            margin-top: 4px;
+            accent-color: var(--primary);
+            width: 17px;
+            height: 17px;
+            cursor: pointer;
+        }
+
+        .option-text strong {
+            display: block;
+            font-size: 0.92rem;
+            margin-bottom: 2px;
+        }
+
+        .option-text span {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+            display: block;
+        }
+
+        .sub-options {
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        .check-label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.88rem;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .check-label input {
+            accent-color: var(--primary);
+            width: 16px;
+            height: 16px;
+        }
+
+        /* إحصائيات سريعة */
+        .stats-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-box {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 14px;
+        }
+
+        .stat-box .label {
+            font-size: 0.76rem;
+            color: var(--text-muted);
+        }
+
+        .stat-box .val {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #34d399;
+        }
+
+        /* جدول المعاينة */
+        .table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            background-color: var(--bg-input);
+            max-height: 320px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+            text-align: right;
+        }
+
+        th, td {
+            padding: 9px 12px;
+            border-bottom: 1px solid var(--border);
+            border-left: 1px solid rgba(46, 60, 84, 0.5);
+            white-space: nowrap;
+            max-width: 240px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        th {
+            background-color: var(--bg-surface-2);
+            color: #34d399;
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        tr:hover td {
+            background-color: rgba(255, 255, 255, 0.03);
+        }
+
+        /* قسم الحفظ النهائي */
+        .save-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            flex: 1;
+            min-width: 230px;
+        }
+
+        .input-group label {
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        input[type="text"] {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 11px 14px;
+            color: var(--text-main);
+            font-family: inherit;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn {
+            font-family: inherit;
+            font-size: 0.95rem;
+            font-weight: 700;
+            padding: 12px 22px;
+            border-radius: var(--radius-md);
+            border: 1px solid transparent;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.18s ease;
+        }
+
+        .btn:active { transform: scale(0.98); }
+        .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: #052e16;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background-color: #34d399;
+        }
+
+        .btn-secondary {
+            background-color: var(--bg-surface-2);
+            color: var(--text-main);
+            border-color: var(--border);
+            font-size: 0.85rem;
+            padding: 9px 14px;
+        }
+
+        .btn-secondary:hover { background-color: #334155; }
+
+        .btn-danger-outline {
+            background-color: rgba(239, 68, 68, 0.12);
+            color: #f87171;
+            border-color: rgba(239, 68, 68, 0.3);
+            font-size: 0.84rem;
+            padding: 8px 14px;
+        }
+
+        .btn-danger-outline:hover { background-color: rgba(239, 68, 68, 0.22); }
+
+        /* سجل ومرجعية المخرجات السابقة */
+        .history-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .history-item {
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 12px 16px;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            transition: border-color 0.2s;
+        }
+
+        .history-item:hover {
+            border-color: #475569;
+        }
+
+        .history-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+            min-width: 240px;
+        }
+
+        .history-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .history-meta {
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+
+        .history-sources {
+            font-size: 0.76rem;
+            color: #34d399;
+            background-color: rgba(16, 185, 129, 0.08);
+            padding: 4px 8px;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 2px;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .history-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .empty-history {
+            text-align: center;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 0.86rem;
+            background-color: rgba(9, 14, 26, 0.4);
+            border-radius: var(--radius-md);
+            border: 1px dashed var(--border);
+        }
+
+        footer {
+            text-align: center;
+            padding: 16px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            border-top: 1px solid rgba(46, 60, 84, 0.5);
+        }
+
+        svg { width: 18px; height: 18px; flex-shrink: 0; }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="toast-box"></div>
+    <input type="file" id="file-input" multiple accept=".xlsx,.csv,.txt" style="display: none;">
+
+    <!-- رأس الصفحة -->
+    <header>
+        <div class="header-wrap">
+            <div class="logo-area">
+                <div class="logo-icon">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                    </svg>
+                </div>
+                <div class="logo-text">
+                    <h1>دامج ملفات الإكسل السريع (Excel Merger)</h1>
+                    <p>ارفع عدة ملفات إكسل واجمعها في ملف واحد مع اختيار مكان الحفظ</p>
+                </div>
+            </div>
+
+            <div class="badge-offline">
+                <span class="pulse"></span>
+                <span>يعمل بدون إنترنت 100%</span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <!-- الخطوة 1: رفع الملفات -->
+        <section class="card">
+            <div class="step-header">
+                <div class="step-title">
+                    <span class="step-num">1</span>
+                    <span>ارفع ملفات الإكسل (.xlsx أو .csv) المراد دمجها</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('file-input').click()">
+                        + إضافة ملفات
+                    </button>
+                    <button type="button" id="clear-all-btn" class="btn btn-danger-outline hidden" onclick="clearAllFiles()">
+                        مسح الكل
+                    </button>
+                </div>
+            </div>
+
+            <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+                <div class="drop-icon">
+                    <svg style="width:26px;height:26px" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path>
+                    </svg>
+                </div>
+                <h3>اسحب ملفات الإكسل وأفلتها هنا، أو اضغط للاختيار</h3>
+                <p>يدعم تحديد عدة ملفات معاً بصيغة XLSX و CSV (تتم المعالجة محلياً على جهازك بأمان تام)</p>
+            </div>
+
+            <div id="file-list" class="file-list"></div>
+        </section>
+
+        <!-- الخطوة 2: خيارات الدمج -->
+        <section class="card" id="options-section">
+            <div class="step-header">
+                <div class="step-title">
+                    <span class="step-num">2</span>
+                    <span>طريقة دمج الملفات</span>
+                </div>
+            </div>
+
+            <div class="options-grid">
+                <label class="option-card active" id="mode-card-append">
+                    <input type="radio" name="mergeMode" value="append" checked onchange="onOptionChange()">
+                    <div class="option-text">
+                        <strong>دمج الكل في ورقة عمل واحدة (تجميع الصفوف)</strong>
+                        <span>يجمع صفوف جميع الملفات تحت بعضها في شيت واحد مع توحيد الأعمدة تلقائياً.</span>
+                    </div>
+                </label>
+
+                <label class="option-card" id="mode-card-sheets">
+                    <input type="radio" name="mergeMode" value="sheets" onchange="onOptionChange()">
+                    <div class="option-text">
+                        <strong>كل ملف في ورقة عمل منفصلة (Tabs)</strong>
+                        <span>يجمع الملفات داخل ملف إكسل واحد بحيث يكون لكل ملف تبويب (Sheet) خاص به.</span>
+                    </div>
+                </label>
+            </div>
+
+            <div class="sub-options" id="append-sub-options">
+                <label class="check-label">
+                    <input type="checkbox" id="opt-skip-headers" checked onchange="rebuildPreview()">
+                    <span>تجاهل تكرار صف العناوين (Header) من الملفات التالية</span>
+                </label>
+
+                <label class="check-label">
+                    <input type="checkbox" id="opt-align-columns" checked onchange="rebuildPreview()">
+                    <span>مطابقة الأعمدة حسب اسم العنوان تلقائياً</span>
+                </label>
+
+                <label class="check-label">
+                    <input type="checkbox" id="opt-add-source" onchange="rebuildPreview()">
+                    <span>إضافة عمود يوضح "اسم الملف المصدر" لكل صف</span>
+                </label>
+
+                <label class="check-label">
+                    <input type="checkbox" id="opt-clean-items" checked onchange="rebuildPreview()">
+                    <span>تنظيف وتنسيق البنود (إزالة المسافات الزائدة وتوحيد الفراغات)</span>
+                </label>
+            </div>
+        </section>
+
+        <!-- الخطوة 3: المعاينة والحفظ -->
+        <section class="card">
+            <div class="step-header">
+                <div class="step-title">
+                    <span class="step-num">3</span>
+                    <span>المعاينة وحفظ الملف المجمع</span>
+                </div>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-box">
+                    <div class="label">عدد الملفات المرفوعة</div>
+                    <div class="val" id="stat-files">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">عدد أوراق العمل الناتجة</div>
+                    <div class="val" id="stat-sheets">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">إجمالي الصفوف المجمعة</div>
+                    <div class="val" id="stat-rows">0</div>
+                </div>
+            </div>
+
+            <div id="preview-container" class="hidden" style="margin-bottom: 18px;">
+                <div style="font-size: 0.82rem; color: var(--text-muted); margin-bottom: 6px;" id="preview-caption">
+                    معاينة أول 40 صف من النتيجة المجمعة:
+                </div>
+                <div class="table-wrap">
+                    <table id="preview-table"></table>
+                </div>
+            </div>
+
+            <div class="save-row">
+                <div class="input-group">
+                    <label for="output-name">اسم الملف المجمع المقترح (سيتم سؤالك عن مكان الحفظ عند الضغط):</label>
+                    <input type="text" id="output-name" value="ملف_اكسل_مجمع" placeholder="اكتب اسم الملف...">
+                </div>
+
+                <button type="button" id="merge-save-btn" class="btn btn-primary" disabled onclick="exportAndAskWhereToSave()">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"></path>
+                    </svg>
+                    دمج وحفظ الإكسل (اختيار مكان الحفظ)...
+                </button>
+            </div>
+        </section>
+
+        <!-- الخطوة الجديدة: حاسبة ميزانية وصرف باقي شهور السنة الميلادية -->
+        <section class="card">
+            <div class="step-header">
+                <div class="step-title">
+                    <span class="step-num">🧮</span>
+                    <span>حاسبة ومتابعة صرف باقي شهور السنة الميلادية</span>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 16px;">
+                <div class="input-group">
+                    <label for="calc-budget">إجمالي الميزانية السنوية:</label>
+                    <input type="number" id="calc-budget" value="120000" min="0" step="1000" oninput="calculateRemainingBudget()">
+                </div>
+                <div class="input-group">
+                    <label for="calc-spent">المصروف الفعلي حتى الآن:</label>
+                    <input type="number" id="calc-spent" value="35000" min="0" step="500" oninput="calculateRemainingBudget()">
+                </div>
+                <div class="input-group">
+                    <label for="calc-current-month">الشهر الحالي:</label>
+                    <select id="calc-current-month" onchange="calculateRemainingBudget()" style="background-color: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 11px 14px; color: var(--text-main); font-family: inherit; font-size: 0.95rem; outline: none;">
+                        <option value="1">يناير (1)</option>
+                        <option value="2">فبراير (2)</option>
+                        <option value="3">مارس (3)</option>
+                        <option value="4">أبريل (4)</option>
+                        <option value="5">مايو (5)</option>
+                        <option value="6" selected>يونيو (6)</option>
+                        <option value="7">يوليو (7)</option>
+                        <option value="8">أغسطس (8)</option>
+                        <option value="9">سبتمبر (9)</option>
+                        <option value="10">أكتوبر (10)</option>
+                        <option value="11">نوفمبر (11)</option>
+                        <option value="12">ديسمبر (12)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="stats-bar">
+                <div class="stat-box">
+                    <div class="label">المبلغ المتبقي من الميزانية</div>
+                    <div class="val" id="res-remaining" style="color: #60a5fa;">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">الشهور المتبقية في السنة</div>
+                    <div class="val" id="res-months-left" style="color: #f59e0b;">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="label">معدل الصرف الموصى به شهرياً</div>
+                    <div class="val" id="res-monthly-rate" style="color: #34d399;">0</div>
+                </div>
+            </div>
+            <div id="budget-advice" style="font-size: 0.85rem; color: var(--text-muted); background-color: var(--bg-input); padding: 10px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);"></div>
+        </section>
+
+        <!-- الخطوة 4: سجل ومرجعية المخرجات السابقة -->
+        <section class="card">
+            <div class="step-header">
+                <div class="step-title">
+                    <span class="step-num">★</span>
+                    <span>مرجعية وسجل المخرجات السابقة (محفوظة محلياً)</span>
+                </div>
+                <button type="button" id="clear-history-btn" class="btn btn-danger-outline hidden" onclick="clearAllHistory()">
+                    مسح السجل
+                </button>
+            </div>
+
+            <div id="history-container">
+                <div class="empty-history">لا توجد مخرجات محفوظة في السجل بعد. عند دمج وحفظ أي ملف، سيظهر هنا كمرجع دائم لك.</div>
+            </div>
+        </section>
+    </main>
+
+    <footer>
+        محرك قراءة وكتابة XLSX مدمج بالكامل • يعمل بدون إنترنت • يسألك دائماً عن مكان الحفظ
+    </footer>
+
+    <script>
+        /* ============================================================================
+           1. نظام التنبيهات وإدارة حالة التطبيق
+        ============================================================================ */
+        const uploadedFiles = []; // { id, fileName, ext, sheets: [ { name, rows: [][] } ] }
+        let mergedSheetsCache = []; // [ { name, rows: [][] } ]
+        const HISTORY_DB_NAME = 'ExcelMergerHistoryDB';
+        const HISTORY_STORE_NAME = 'outputs';
+
+        function escapeHtml(str) {
+            return String(str ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        function showToast(msg, type = 'info') {
+            const box = document.getElementById('toast-box');
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            el.textContent = msg;
+            box.appendChild(el);
+            requestAnimationFrame(() => el.classList.add('show'));
+            setTimeout(() => {
+                el.classList.remove('show');
+                setTimeout(() => el.remove(), 280);
+            }, 3500);
+        }
+
+        /* ============================================================================
+           2. محرك ZIP مدمج بالكامل (قراءة وكتابة بدون أي مكتبات خارجية)
+              يدعم ضغط DEFLATE عبر واجهة المتصفح المدمجة DecompressionStream
+              ويكتب ملفات ZIP قياسية متوافقة 100% مع Microsoft Excel
+        ============================================================================ */
+        const CRC_TABLE = (() => {
+            const table = new Uint32Array(256);
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let k = 0; k < 8; k++) {
+                    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                }
+                table[i] = c;
+            }
+            return table;
+        })();
+
+        function crc32(uint8Arr) {
+            let crc = 0xFFFFFFFF;
+            for (let i = 0; i < uint8Arr.length; i++) {
+                crc = CRC_TABLE[(crc ^ uint8Arr[i]) & 0xFF] ^ (crc >>> 8);
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        async function inflateRawBytes(compressedBytes) {
+            if (typeof DecompressionStream === 'undefined') {
+                throw new Error('المتصفح لا يدعم فك ضغط DEFLATE المدمج.');
+            }
+            const ds = new DecompressionStream('deflate-raw');
+            const writer = ds.writable.getWriter();
+            writer.write(compressedBytes);
+            writer.close();
+            const response = new Response(ds.readable);
+            const buf = await response.arrayBuffer();
+            return new Uint8Array(buf);
+        }
+
+        async function readZipEntries(arrayBuffer) {
+            const bytes = new Uint8Array(arrayBuffer);
+            const view = new DataView(arrayBuffer);
+
+            // البحث عن End of Central Directory (EOCD) من نهاية الملف
+            let eocdOffset = -1;
+            const minOffset = Math.max(0, bytes.length - 65557);
+            for (let i = bytes.length - 22; i >= minOffset; i--) {
+                if (view.getUint32(i, true) === 0x06054b50) {
+                    eocdOffset = i;
+                    break;
+                }
+            }
+            if (eocdOffset === -1) {
+                throw new Error('الملف ليس أرشيف XLSX/ZIP صالحاً.');
+            }
+
+            const totalEntries = view.getUint16(eocdOffset + 10, true);
+            const cdOffset = view.getUint32(eocdOffset + 16, true);
+
+            const entries = new Map();
+            let ptr = cdOffset;
+            const decoder = new TextDecoder('utf-8');
+
+            for (let i = 0; i < totalEntries; i++) {
+                if (view.getUint32(ptr, true) !== 0x02014b50) break;
+
+                const method = view.getUint16(ptr + 10, true);
+                const compSize = view.getUint32(ptr + 20, true);
+                const fileNameLen = view.getUint16(ptr + 28, true);
+                const extraLen = view.getUint16(ptr + 30, true);
+                const commentLen = view.getUint16(ptr + 32, true);
+                const localHeaderOffset = view.getUint32(ptr + 42, true);
+
+                const fileName = decoder.decode(bytes.subarray(ptr + 46, ptr + 46 + fileNameLen));
+                ptr += 46 + fileNameLen + extraLen + commentLen;
+
+                if (fileName.endsWith('/')) continue;
+
+                const localNameLen = view.getUint16(localHeaderOffset + 26, true);
+                const localExtraLen = view.getUint16(localHeaderOffset + 28, true);
+                const dataStart = localHeaderOffset + 30 + localNameLen + localExtraLen;
+                const rawData = bytes.subarray(dataStart, dataStart + compSize);
+
+                let uncompressed;
+                if (method === 0) {
+                    uncompressed = rawData;
+                } else if (method === 8) {
+                    uncompressed = await inflateRawBytes(rawData);
+                } else {
+                    throw new Error(`طريقة ضغط غير مدعومة داخل ملف الإكسل: ${method}`);
+                }
+
+                entries.set(fileName, uncompressed);
+            }
+            return entries;
+        }
+
+        function createZipBlob(filesList) {
+            // filesList: [ { name: string, data: Uint8Array } ]
+            const encoder = new TextEncoder();
+            const localChunks = [];
+            const centralChunks = [];
+            let offset = 0;
+
+            for (const file of filesList) {
+                const nameBytes = encoder.encode(file.name);
+                const data = file.data;
+                const checksum = crc32(data);
+                const size = data.length;
+
+                // Local File Header (30 bytes)
+                const localHeader = new ArrayBuffer(30);
+                const lv = new DataView(localHeader);
+                lv.setUint32(0, 0x04034b50, true); // Signature
+                lv.setUint16(4, 20, true);         // Version needed
+                lv.setUint16(6, 0x0800, true);     // UTF-8 filename flag
+                lv.setUint16(8, 0, true);          // Compression: STORE (0)
+                lv.setUint16(10, 0, true);         // Mod time
+                lv.setUint16(12, 0x21, true);      // Mod date
+                lv.setUint32(14, checksum, true);  // CRC32
+                lv.setUint32(18, size, true);      // Compressed size
+                lv.setUint32(22, size, true);      // Uncompressed size
+                lv.setUint16(26, nameBytes.length, true);
+                lv.setUint16(28, 0, true);         // Extra length
+
+                localChunks.push(new Uint8Array(localHeader), nameBytes, data);
+
+                // Central Directory Header (46 bytes)
+                const cdHeader = new ArrayBuffer(46);
+                const cv = new DataView(cdHeader);
+                cv.setUint32(0, 0x02014b50, true);
+                cv.setUint16(4, 20, true);
+                cv.setUint16(6, 20, true);
+                cv.setUint16(8, 0x0800, true);     // UTF-8 flag
+                cv.setUint16(10, 0, true);         // STORE
+                cv.setUint16(12, 0, true);
+                cv.setUint16(14, 0x21, true);
+                cv.setUint32(16, checksum, true);
+                cv.setUint32(20, size, true);
+                cv.setUint32(24, size, true);
+                cv.setUint16(28, nameBytes.length, true);
+                cv.setUint16(30, 0, true);
+                cv.setUint16(32, 0, true);
+                cv.setUint16(34, 0, true);
+                cv.setUint16(36, 0, true);
+                cv.setUint32(38, 0, true);
+                cv.setUint32(42, offset, true);
+
+                centralChunks.push(new Uint8Array(cdHeader), nameBytes);
+                offset += 30 + nameBytes.length + size;
+            }
+
+            const cdStart = offset;
+            let cdSize = 0;
+            for (const c of centralChunks) cdSize += c.length;
+
+            // End of Central Directory (22 bytes)
+            const eocd = new ArrayBuffer(22);
+            const ev = new DataView(eocd);
+            ev.setUint32(0, 0x06054b50, true);
+            ev.setUint16(4, 0, true);
+            ev.setUint16(6, 0, true);
+            ev.setUint16(8, filesList.length, true);
+            ev.setUint16(10, filesList.length, true);
+            ev.setUint32(12, cdSize, true);
+            ev.setUint32(16, cdStart, true);
+            ev.setUint16(20, 0, true);
+
+            return new Blob(
+                [...localChunks, ...centralChunks, new Uint8Array(eocd)],
+                { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }
+            );
+        }
+
+        /* ============================================================================
+           3. قارئ ملفات XLSX و CSV المدمج
+        ============================================================================ */
+        function colLettersToIndex(letters) {
+            let col = 0;
+            for (let i = 0; i < letters.length; i++) {
+                col = col * 26 + (letters.charCodeAt(i) - 64);
+            }
+            return col - 1;
+        }
+
+        function indexToColLetters(index) {
+            let temp = index + 1;
+            let letters = '';
+            while (temp > 0) {
+                let rem = (temp - 1) % 26;
+                letters = String.fromCharCode(65 + rem) + letters;
+                temp = Math.floor((temp - 1) / 26);
+            }
+            return letters;
+        }
+
+        async function parseXlsxFile(arrayBuffer, fallbackSheetName) {
+            const entries = await readZipEntries(arrayBuffer);
+            const decoder = new TextDecoder('utf-8');
+            const parser = new DOMParser();
+
+            // 1. قراءة Shared Strings إن وجدت
+            const sharedStrings = [];
+            if (entries.has('xl/sharedStrings.xml')) {
+                const ssXml = decoder.decode(entries.get('xl/sharedStrings.xml'));
+                const ssDoc = parser.parseFromString(ssXml, 'application/xml');
+                const siNodes = ssDoc.getElementsByTagName('si');
+                for (let i = 0; i < siNodes.length; i++) {
+                    const tNodes = siNodes[i].getElementsByTagName('t');
+                    let text = '';
+                    for (let j = 0; j < tNodes.length; j++) {
+                        text += tNodes[j].textContent || '';
+                    }
+                    sharedStrings.push(text);
+                }
+            }
+
+            // 2. قراءة أسماء أوراق العمل ومساراتها
+            const sheetTargets = [];
+            if (entries.has('xl/workbook.xml') && entries.has('xl/_rels/workbook.xml.rels')) {
+                const wbDoc = parser.parseFromString(decoder.decode(entries.get('xl/workbook.xml')), 'application/xml');
+                const relsDoc = parser.parseFromString(decoder.decode(entries.get('xl/_rels/workbook.xml.rels')), 'application/xml');
+
+                const relMap = new Map();
+                const relNodes = relsDoc.getElementsByTagName('Relationship');
+                for (let i = 0; i < relNodes.length; i++) {
+                    const id = relNodes[i].getAttribute('Id');
+                    let target = relNodes[i].getAttribute('Target') || '';
+                    if (target.startsWith('/')) target = target.slice(1);
+                    else if (!target.startsWith('xl/')) target = 'xl/' + target;
+                    relMap.set(id, target);
+                }
+
+                const sheetNodes = wbDoc.getElementsByTagName('sheet');
+                for (let i = 0; i < sheetNodes.length; i++) {
+                    const name = sheetNodes[i].getAttribute('name') || `Sheet${i + 1}`;
+                    const rId = sheetNodes[i].getAttribute('r:id') || sheetNodes[i].getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+                    const path = relMap.get(rId);
+                    if (path && entries.has(path)) {
+                        sheetTargets.push({ name, path });
+                    }
+                }
+            }
+
+            // احتياطي إذا لم نجد العلاقات
+            if (sheetTargets.length === 0) {
+                for (const key of entries.keys()) {
+                    if (key.startsWith('xl/worksheets/sheet') && key.endsWith('.xml')) {
+                        sheetTargets.push({ name: fallbackSheetName, path: key });
+                    }
+                }
+            }
+
+            // 3. تحليل كل ورقة عمل
+            const sheets = [];
+            for (const st of sheetTargets) {
+                const xmlStr = decoder.decode(entries.get(st.path));
+                const doc = parser.parseFromString(xmlStr, 'application/xml');
+                const rowNodes = doc.getElementsByTagName('row');
+                const rows = [];
+
+                for (let r = 0; r < rowNodes.length; r++) {
+                    const cellNodes = rowNodes[r].getElementsByTagName('c');
+                    const rowArr = [];
+                    let hasValue = false;
+
+                    for (let c = 0; c < cellNodes.length; c++) {
+                        const cell = cellNodes[c];
+                        const ref = cell.getAttribute('r') || '';
+                        const match = ref.match(/^([A-Z]+)(\d+)$/);
+                        const colIdx = match ? colLettersToIndex(match[1]) : rowArr.length;
+                        const type = cell.getAttribute('t') || '';
+
+                        let val = '';
+                        if (type === 'inlineStr') {
+                            const tNode = cell.getElementsByTagName('t')[0];
+                            val = tNode ? tNode.textContent : '';
+                        } else {
+                            const vNode = cell.getElementsByTagName('v')[0];
+                            const rawVal = vNode ? vNode.textContent : '';
+                            if (type === 's') {
+                                const idx = parseInt(rawVal, 10);
+                                val = !isNaN(idx) && sharedStrings[idx] !== undefined ? sharedStrings[idx] : '';
+                            } else if (type === 'b') {
+                                val = rawVal === '1' ? 'TRUE' : 'FALSE';
+                            } else if (type === 'str' || type === 'e') {
+                                val = rawVal;
+                            } else {
+                                // رقم أو فارغ
+                                if (rawVal !== '') {
+                                    const num = Number(rawVal);
+                                    val = !isNaN(num) ? num : rawVal;
+                                }
+                            }
+                        }
+
+                        if (val !== '' && val !== null && val !== undefined) hasValue = true;
+                        while (rowArr.length < colIdx) rowArr.push('');
+                        rowArr[colIdx] = val;
+                    }
+
+                    if (hasValue) rows.push(rowArr);
+                }
+
+                sheets.push({ name: st.name, rows });
+            }
+
+            return sheets;
+        }
+
+        function parseCsvText(text, sheetName) {
+            // إزالة UTF-8 BOM إن وجد
+            if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+            const lines = text.split(/\r?\n/).filter(l => l.trim() !== '');
+            if (lines.length === 0) return [{ name: sheetName, rows: [] }];
+
+            // اكتشاف الفاصل (, أو ;)
+            const firstLine = lines[0];
+            const commaCount = (firstLine.match(/,/g) || []).length;
+            const semiCount = (firstLine.match(/;/g) || []).length;
+            const delimiter = semiCount > commaCount ? ';' : ',';
+
+            const rows = lines.map(line => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                for (let i = 0; i < line.length; i++) {
+                    const ch = line[i];
+                    if (ch === '"') {
+                        if (inQuotes && line[i + 1] === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (ch === delimiter && !inQuotes) {
+                        result.push(parseCellAutoType(current.trim()));
+                        current = '';
+                    } else {
+                        current += ch;
+                    }
+                }
+                result.push(parseCellAutoType(current.trim()));
+                return result;
+            });
+
+            return [{ name: sheetName, rows }];
+        }
+
+        function parseCellAutoType(str) {
+            if (str === '') return '';
+            if (/^-?\d+(\.\d+)?$/.test(str)) {
+                return Number(str);
+            }
+            return str;
+        }
+
+        /* ============================================================================
+           4. منشئ ملفات XLSX المدمج (ينتج ملف إكسل أصلي منسق ومضبوط الاتجاه RTL)
+        ============================================================================ */
+        function escapeXml(val) {
+            return String(val)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&apos;')
+                // إزالة أي رموز تحكم غير صالحة في XML
+                .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+        }
+
+        function sanitizeSheetName(name, usedNames) {
+            let clean = String(name || 'Sheet').replace(/[:\\/?*\[\]]/g, '_').trim();
+            if (!clean) clean = 'Sheet';
+            clean = clean.slice(0, 31);
+            let finalName = clean;
+            let counter = 2;
+            while (usedNames.has(finalName.toLowerCase())) {
+                const suffix = `_${counter++}`;
+                finalName = clean.slice(0, 31 - suffix.length) + suffix;
+            }
+            usedNames.add(finalName.toLowerCase());
+            return finalName;
+        }
+
+        function buildXlsxBlob(sheetsList) {
+            const encoder = new TextEncoder();
+            const zipFiles = [];
+            const usedSheetNames = new Set();
+
+            const normalizedSheets = sheetsList.map(s => ({
+                name: sanitizeSheetName(s.name, usedSheetNames),
+                rows: s.rows.length > 0 ? s.rows : [['']]
+            }));
+
+            // 1. [Content_Types].xml
+            let contentTypesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+  <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>`;
+
+            normalizedSheets.forEach((_, idx) => {
+                contentTypesXml += `\n  <Override PartName="/xl/worksheets/sheet${idx + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`;
+            });
+            contentTypesXml += `\n</Types>`;
+            zipFiles.push({ name: '[Content_Types].xml', data: encoder.encode(contentTypesXml) });
+
+            // 2. _rels/.rels
+            const rootRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+</Relationships>`;
+            zipFiles.push({ name: '_rels/.rels', data: encoder.encode(rootRelsXml) });
+
+            // 3. xl/styles.xml (تنسيق احترافي متناسق: ترويسة مميزة + صفوف متبادلة اللون + محاذاة وسطى + التفاف نص + حدود نظيفة)
+            const stylesXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <fonts count="2">
+    <font><sz val="11"/><color rgb="FF1E293B"/><name val="Arial"/></font>
+    <font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Arial"/></font>
+  </fonts>
+  <fills count="4">
+    <fill><patternFill patternType="none"/></fill>
+    <fill><patternFill patternType="gray125"/></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FF065F46"/><bgColor indexed="64"/></patternFill></fill>
+    <fill><patternFill patternType="solid"><fgColor rgb="FFF8FAFC"/><bgColor indexed="64"/></patternFill></fill>
+  </fills>
+  <borders count="2">
+    <border><left/><right/><top/><bottom/><diagonal/></border>
+    <border>
+      <left style="thin"><color rgb="FFCBD5E1"/></left>
+      <right style="thin"><color rgb="FFCBD5E1"/></right>
+      <top style="thin"><color rgb="FFCBD5E1"/></top>
+      <bottom style="thin"><color rgb="FFCBD5E1"/></bottom>
+    </border>
+  </borders>
+  <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+  <cellXfs count="6">
+    <!-- 0: نص عادي (صف فردي) -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 1: صف العناوين الرئيسي (Header) -->
+    <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="center" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 2: نص عادي (صف زوجي مظلل بلطف لتناسق القراءة) -->
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="right" vertical="center" wrapText="1"/>
+    </xf>
+    <!-- 3: أرقام منسقة (صف فردي) -->
+    <xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="center" vertical="center"/>
+    </xf>
+    <!-- 4: أرقام منسقة (صف زوجي مظلل) -->
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="center" vertical="center"/>
+    </xf>
+    <!-- 5: عمود المصدر المميز -->
+    <xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">
+      <alignment horizontal="center" vertical="center" wrapText="1"/>
+    </xf>
+  </cellXfs>
+</styleSheet>`;
+            zipFiles.push({ name: 'xl/styles.xml', data: encoder.encode(stylesXml) });
+
+            // 4. xl/workbook.xml & xl/_rels/workbook.xml.rels
+            let workbookXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <sheets>`;
+            let wbRelsXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdStyles" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>`;
+
+            normalizedSheets.forEach((sheet, idx) => {
+                const sheetNum = idx + 1;
+                workbookXml += `\n    <sheet name="${escapeXml(sheet.name)}" sheetId="${sheetNum}" r:id="rId${sheetNum}"/>`;
+                wbRelsXml += `\n  <Relationship Id="rId${sheetNum}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${sheetNum}.xml"/>`;
+            });
+
+            workbookXml += `\n  </sheets>\n</workbook>`;
+            wbRelsXml += `\n</Relationships>`;
+
+            zipFiles.push({ name: 'xl/workbook.xml', data: encoder.encode(workbookXml) });
+            zipFiles.push({ name: 'xl/_rels/workbook.xml.rels', data: encoder.encode(wbRelsXml) });
+
+            // 5. بناء كل ورقة عمل xl/worksheets/sheetN.xml بتنسيق متكامل
+            normalizedSheets.forEach((sheet, idx) => {
+                const colWidths = [];
+                let maxCols = 1;
+                sheet.rows.forEach(row => {
+                    if (row.length > maxCols) maxCols = row.length;
+                    row.forEach((cell, cIdx) => {
+                        const textVal = String(cell ?? '');
+                        // منح الأحرف العربية وزناً إضافياً في العرض لمنع تداخل أو قص النص
+                        const hasArabic = /[\u0600-\u06FF]/.test(textVal);
+                        const visualLen = Math.ceil(textVal.length * (hasArabic ? 1.25 : 1.05));
+                        colWidths[cIdx] = Math.min(52, Math.max(colWidths[cIdx] || 15, visualLen + 6));
+                    });
+                });
+
+                let colsXml = '';
+                if (maxCols > 0) {
+                    colsXml = '<cols>';
+                    for (let cIdx = 0; cIdx < maxCols; cIdx++) {
+                        const w = colWidths[cIdx] || 16;
+                        colsXml += `<col min="${cIdx + 1}" max="${cIdx + 1}" width="${w}" customWidth="1"/>`;
+                    }
+                    colsXml += '</cols>';
+                }
+
+                let sheetDataXml = '<sheetData>';
+                sheet.rows.forEach((row, rIdx) => {
+                    const rowNum = rIdx + 1;
+                    const isHeader = rIdx === 0;
+                    const isEvenDataRow = rIdx > 0 && (rIdx % 2 === 0);
+                    // ارتفاع مريح للصفوف: 30 للعنوان و 24 لباقي البنود
+                    const rowHeight = isHeader ? 32 : 24;
+                    sheetDataXml += `<row r="${rowNum}" ht="${rowHeight}" customHeight="1">`;
+
+                    for (let cIdx = 0; cIdx < maxCols; cIdx++) {
+                        const val = row[cIdx];
+                        const cellRef = `${indexToColLetters(cIdx)}${rowNum}`;
+                        const isNum = typeof val === 'number' && !isNaN(val) && isFinite(val);
+
+                        let styleIndex = 0;
+                        if (isHeader) {
+                            styleIndex = 1;
+                        } else if (isNum) {
+                            styleIndex = isEvenDataRow ? 4 : 3;
+                        } else {
+                            styleIndex = isEvenDataRow ? 2 : 0;
+                        }
+
+                        if (val === null || val === undefined || val === '') {
+                            // رسم الخلية الفارغة بالحدود والتظليل للحفاظ على تناسق الجدول بالكامل
+                            sheetDataXml += `<c r="${cellRef}" s="${styleIndex}"/>`;
+                        } else if (isNum) {
+                            sheetDataXml += `<c r="${cellRef}" s="${styleIndex}"><v>${val}</v></c>`;
+                        } else {
+                            sheetDataXml += `<c r="${cellRef}" t="inlineStr" s="${styleIndex}"><is><t>${escapeXml(val)}</t></is></c>`;
+                        }
+                    }
+                    sheetDataXml += `</row>`;
+                });
+                sheetDataXml += '</sheetData>';
+
+                const lastColLetter = indexToColLetters(Math.max(0, maxCols - 1));
+                const lastRowNum = Math.max(1, sheet.rows.length);
+                const autoFilterXml = sheet.rows.length > 1
+                    ? `<autoFilter ref="A1:${lastColLetter}${lastRowNum}"/>`
+                    : '';
+
+                const worksheetXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+  <sheetViews>
+    <sheetView rightToLeft="1" workbookViewId="0">
+      <pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>
+    </sheetView>
+  </sheetViews>
+  <sheetFormatPr defaultRowHeight="24"/>
+  ${colsXml}
+  ${sheetDataXml}
+  ${autoFilterXml}
+  <pageMargins left="0.5" right="0.5" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>
+</worksheet>`;
+
+                zipFiles.push({
+                    name: `xl/worksheets/sheet${idx + 1}.xml`,
+                    data: encoder.encode(worksheetXml)
+                });
+            });
+
+            return createZipBlob(zipFiles);
+        }
+
+        /* ============================================================================
+           5. منطق رفع الملفات والدمج والمعاينة
+        ============================================================================ */
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                handleFiles(e.dataTransfer.files);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                handleFiles(e.target.files);
+                fileInput.value = '';
+            }
+        });
+
+        async function handleFiles(fileListObj) {
+            const files = Array.from(fileListObj);
+            let addedCount = 0;
+
+            for (const file of files) {
+                const name = file.name;
+                const ext = name.split('.').pop().toLowerCase();
+                const baseName = name.replace(/\.[^/.]+$/, '');
+
+                try {
+                    if (ext === 'xlsx') {
+                        const buf = await file.arrayBuffer();
+                        const sheets = await parseXlsxFile(buf, baseName);
+                        uploadedFiles.push({
+                            id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+                            fileName: name,
+                            baseName,
+                            ext,
+                            sheets
+                        });
+                        addedCount++;
+                    } else if (ext === 'csv' || ext === 'txt') {
+                        const text = await file.text();
+                        const sheets = parseCsvText(text, baseName);
+                        uploadedFiles.push({
+                            id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
+                            fileName: name,
+                            baseName,
+                            ext,
+                            sheets
+                        });
+                        addedCount++;
+                    } else {
+                        showToast(`صيغة الملف "${name}" غير مدعومة. استخدم XLSX أو CSV.`, 'error');
+                    }
+                } catch (err) {
+                    console.error(err);
+                    showToast(`تعذرت قراءة الملف "${name}": ${err.message}`, 'error');
+                }
+            }
+
+            if (addedCount > 0) {
+                showToast(`تمت إضافة ${addedCount} ملف بنجاح!`, 'success');
+                renderFileList();
+                rebuildPreview();
+            }
+        }
+
+        function renderFileList() {
+            const listEl = document.getElementById('file-list');
+            const clearBtn = document.getElementById('clear-all-btn');
+            listEl.innerHTML = '';
+
+            if (uploadedFiles.length === 0) {
+                clearBtn.classList.add('hidden');
+                return;
+            }
+            clearBtn.classList.remove('hidden');
+
+            uploadedFiles.forEach((f, idx) => {
+                const totalRows = f.sheets.reduce((acc, s) => acc + s.rows.length, 0);
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                item.innerHTML = `
+                    <div class="file-info">
+                        <span class="file-badge">${f.ext}</span>
+                        <div>
+                            <div class="file-name">${escapeHtml(f.fileName)}</div>
+                            <div class="file-meta">الأوراق: ${f.sheets.length} • الصفوف: ${totalRows}</div>
+                        </div>
+                    </div>
+                    <div class="file-controls">
+                        <button type="button" class="icon-btn" title="تحريك لأعلى" onclick="moveFile(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>▲</button>
+                        <button type="button" class="icon-btn" title="تحريك لأسفل" onclick="moveFile(${idx}, 1)" ${idx === uploadedFiles.length - 1 ? 'disabled' : ''}>▼</button>
+                        <button type="button" class="icon-btn del" title="حذف الملف" onclick="removeFile(${idx})">✕</button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        function moveFile(index, dir) {
+            const target = index + dir;
+            if (target < 0 || target >= uploadedFiles.length) return;
+            const temp = uploadedFiles[index];
+            uploadedFiles[index] = uploadedFiles[target];
+            uploadedFiles[target] = temp;
+            renderFileList();
+            rebuildPreview();
+        }
+
+        function removeFile(index) {
+            uploadedFiles.splice(index, 1);
+            renderFileList();
+            rebuildPreview();
+        }
+
+        function clearAllFiles() {
+            uploadedFiles.length = 0;
+            renderFileList();
+            rebuildPreview();
+            showToast('تم مسح جميع الملفات.', 'info');
+        }
+
+        function onOptionChange() {
+            const mode = document.querySelector('input[name="mergeMode"]:checked').value;
+            document.getElementById('mode-card-append').classList.toggle('active', mode === 'append');
+            document.getElementById('mode-card-sheets').classList.toggle('active', mode === 'sheets');
+            document.getElementById('append-sub-options').classList.toggle('hidden', mode !== 'append');
+            rebuildPreview();
+        }
+
+        function computeMergedSheets() {
+            if (uploadedFiles.length === 0) return [];
+
+            const mode = document.querySelector('input[name="mergeMode"]:checked').value;
+            const cleanItems = document.getElementById('opt-clean-items')?.checked ?? true;
+
+            const formatCell = (val) => {
+                if (!cleanItems || typeof val !== 'string') return val;
+                // توحيد المسافات المتكررة وإزالة الفراغات الطرفية لتناسق البنود
+                return val.replace(/\s+/g, ' ').trim();
+            };
+
+            const formatRow = (row) => row.map(formatCell);
+
+            // الوضع الثاني: كل ملف في ورقة عمل مستقلة
+            if (mode === 'sheets') {
+                const result = [];
+                for (const file of uploadedFiles) {
+                    file.sheets.forEach((sh, sIdx) => {
+                        const tabName = file.sheets.length > 1
+                            ? `${file.baseName}_${sh.name}`
+                            : file.baseName;
+                        result.push({ name: tabName, rows: sh.rows.map(formatRow) });
+                    });
+                }
+                return result;
+            }
+
+            // الوضع الأول: دمج جميع الصفوف في ورقة عمل واحدة
+            const skipHeaders = document.getElementById('opt-skip-headers').checked;
+            const alignColumns = document.getElementById('opt-align-columns').checked;
+            const addSourceCol = document.getElementById('opt-add-source').checked;
+
+            const mergedRows = [];
+            let masterHeaders = []; // أسماء الأعمدة الموحدة
+
+            uploadedFiles.forEach((file, fileIdx) => {
+                file.sheets.forEach((sh, sheetIdx) => {
+                    if (!sh.rows || sh.rows.length === 0) return;
+
+                    const isVeryFirstTable = mergedRows.length === 0;
+                    const fileHeaderRow = sh.rows[0].map(h => String(formatCell(h) ?? '').trim());
+
+                    if (isVeryFirstTable) {
+                        masterHeaders = [...fileHeaderRow];
+                        const firstRowOut = addSourceCol ? ['اسم الملف المصدر', ...masterHeaders] : [...masterHeaders];
+                        mergedRows.push(firstRowOut);
+
+                        for (let r = 1; r < sh.rows.length; r++) {
+                            const rowCopy = formatRow(sh.rows[r]);
+                            mergedRows.push(addSourceCol ? [file.fileName, ...rowCopy] : rowCopy);
+                        }
+                    } else {
+                        const startRow = skipHeaders ? 1 : 0;
+
+                        if (alignColumns && skipHeaders) {
+                            // مطابقة الأعمدة بناءً على اسم العمود في صف العناوين
+                            const colMapping = fileHeaderRow.map(hName => {
+                                if (!hName) return -1;
+                                let existingIdx = masterHeaders.findIndex(mh => mh.toLowerCase() === hName.toLowerCase());
+                                if (existingIdx === -1) {
+                                    existingIdx = masterHeaders.length;
+                                    masterHeaders.push(hName);
+                                    // تحديث صف العناوين الرئيسي في الأعلى
+                                    mergedRows[0] = addSourceCol ? ['اسم الملف المصدر', ...masterHeaders] : [...masterHeaders];
+                                }
+                                return existingIdx;
+                            });
+
+                            for (let r = startRow; r < sh.rows.length; r++) {
+                                const alignedRow = new Array(masterHeaders.length).fill('');
+                                sh.rows[r].forEach((val, cIdx) => {
+                                    const targetIdx = colMapping[cIdx] !== undefined && colMapping[cIdx] !== -1
+                                        ? colMapping[cIdx]
+                                        : cIdx;
+                                    while (alignedRow.length <= targetIdx) alignedRow.push('');
+                                    alignedRow[targetIdx] = formatCell(val);
+                                });
+                                mergedRows.push(addSourceCol ? [file.fileName, ...alignedRow] : alignedRow);
+                            }
+                        } else {
+                            // دمج مباشر بنفس ترتيب الأعمدة
+                            for (let r = startRow; r < sh.rows.length; r++) {
+                                const rowCopy = formatRow(sh.rows[r]);
+                                mergedRows.push(addSourceCol ? [file.fileName, ...rowCopy] : rowCopy);
+                            }
+                        }
+                    }
+                });
+            });
+
+            // ضمان تساوي عدد الأعمدة في جميع الصفوف لتناسق الجدول بالكامل
+            let maxCols = 0;
+            mergedRows.forEach(r => { if (r.length > maxCols) maxCols = r.length; });
+            const normalizedMergedRows = mergedRows.map(r => {
+                const padded = [...r];
+                while (padded.length < maxCols) padded.push('');
+                return padded;
+            });
+
+            return [{ name: 'البيانات_المجمعة', rows: normalizedMergedRows }];
+        }
+
+        function rebuildPreview() {
+            mergedSheetsCache = computeMergedSheets();
+
+            const statFiles = document.getElementById('stat-files');
+            const statSheets = document.getElementById('stat-sheets');
+            const statRows = document.getElementById('stat-rows');
+            const previewContainer = document.getElementById('preview-container');
+            const previewTable = document.getElementById('preview-table');
+            const saveBtn = document.getElementById('merge-save-btn');
+
+            statFiles.textContent = uploadedFiles.length;
+            statSheets.textContent = mergedSheetsCache.length;
+
+            const totalRows = mergedSheetsCache.reduce((sum, s) => sum + s.rows.length, 0);
+            statRows.textContent = totalRows;
+
+            if (uploadedFiles.length === 0 || mergedSheetsCache.length === 0) {
+                previewContainer.classList.add('hidden');
+                saveBtn.disabled = true;
+                return;
+            }
+
+            saveBtn.disabled = false;
+            previewContainer.classList.remove('hidden');
+
+            const firstSheet = mergedSheetsCache[0];
+            const mode = document.querySelector('input[name="mergeMode"]:checked').value;
+            document.getElementById('preview-caption').textContent = mode === 'sheets'
+                ? `معاينة الورقة الأولى (${firstSheet.name}) من إجمالي ${mergedSheetsCache.length} أوراق عمل:`
+                : `معاينة أول 40 صف من النتيجة المجمعة:`;
+
+            const sampleRows = firstSheet.rows.slice(0, 40);
+            let maxCols = 0;
+            sampleRows.forEach(r => { if (r.length > maxCols) maxCols = r.length; });
+
+            let html = '';
+            sampleRows.forEach((row, rIdx) => {
+                html += '<tr>';
+                for (let c = 0; c < maxCols; c++) {
+                    const cellVal = row[c] !== undefined && row[c] !== null ? row[c] : '';
+                    if (rIdx === 0) {
+                        html += `<th>${escapeHtml(cellVal || `عمود ${c + 1}`)}</th>`;
+                    } else {
+                        html += `<td>${escapeHtml(cellVal)}</td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+
+            previewTable.innerHTML = html;
+        }
+
+        /* ============================================================================
+           6. الحفظ وسؤال المستخدم عن مكان الحفظ (Save As Dialog)
+        ============================================================================ */
+        async function exportAndAskWhereToSave() {
+            if (mergedSheetsCache.length === 0) {
+                showToast('لا توجد بيانات لدمجها وحفظها.', 'error');
+                return;
+            }
+
+            const rawName = document.getElementById('output-name').value.trim() || 'ملف_اكسل_مجمع';
+            const cleanName = rawName.replace(/[/\\?%*:|"<>]/g, '_');
+            const suggestedFileName = cleanName.toLowerCase().endsWith('.xlsx')
+                ? cleanName
+                : `${cleanName}.xlsx`;
+
+            const xlsxBlob = buildXlsxBlob(mergedSheetsCache);
+
+            // استخدام نافذة النظام الأصلية لاختيار مكان واسم الحفظ
+            if (typeof window.showSaveFilePicker === 'function') {
+                try {
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: suggestedFileName,
+                        types: [{
+                            description: 'ملف Microsoft Excel (.xlsx)',
+                            accept: {
+                                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+                            }
+                        }]
+                    });
+
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(xlsxBlob);
+                    await writable.close();
+
+                    await saveOutputToHistory(fileHandle.name, mergedSheetsCache, uploadedFiles);
+                    showToast(`تم دمج الملفات وحفظ "${fileHandle.name}" وتسجيله في المرجعية بنجاح!`, 'success');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') {
+                        showToast('تم إلغاء الحفظ.', 'info');
+                        return;
+                    }
+                    console.warn('Fallback download triggered:', err);
+                }
+            }
+
+            // البديل القياسي للمتصفحات التي لا تدعم showSaveFilePicker
+            const url = URL.createObjectURL(xlsxBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = suggestedFileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            await saveOutputToHistory(suggestedFileName, mergedSheetsCache, uploadedFiles);
+            showToast(`تم تجهيز وتنزيل "${suggestedFileName}" وتسجيله في المرجعية بنجاح!`, 'success');
+        }
+
+        /* ============================================================================
+           7. نظام قاعدة البيانات المحلية (IndexedDB) لحفظ مرجعية المخرجات السابقة
+        ============================================================================ */
+        function openHistoryDB() {
+            return new Promise((resolve, reject) => {
+                if (!window.indexedDB) {
+                    reject(new Error('المتصفح لا يدعم IndexedDB'));
+                    return;
+                }
+                const req = indexedDB.open(HISTORY_DB_NAME, 1);
+                req.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(HISTORY_STORE_NAME)) {
+                        db.createObjectStore(HISTORY_STORE_NAME, { keyPath: 'id' });
+                    }
+                };
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => reject(req.error);
+            });
+        }
+
+        async function saveOutputToHistory(savedFileName, sheetsData, sourceFiles) {
+            try {
+                const db = await openHistoryDB();
+                const totalRows = sheetsData.reduce((sum, s) => sum + s.rows.length, 0);
+                const mode = document.querySelector('input[name="mergeMode"]:checked').value;
+                const record = {
+                    id: Date.now(),
+                    createdAt: new Date().toLocaleString('ar-EG', {
+                        year: 'numeric', month: 'short', day: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                    }),
+                    fileName: savedFileName,
+                    modeLabel: mode === 'sheets' ? 'أوراق عمل منفصلة' : 'ورقة عمل موحدة',
+                    sheetsCount: sheetsData.length,
+                    totalRows: totalRows,
+                    sourceNames: sourceFiles.map(f => f.fileName),
+                    sheetsSnapshot: JSON.parse(JSON.stringify(sheetsData))
+                };
+
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+                    tx.objectStore(HISTORY_STORE_NAME).put(record);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+
+                await renderHistoryList();
+            } catch (err) {
+                console.warn('تعذر حفظ السجل المحلي:', err);
+            }
+        }
+
+        async function getAllHistoryRecords() {
+            try {
+                const db = await openHistoryDB();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(HISTORY_STORE_NAME, 'readonly');
+                    const req = tx.objectStore(HISTORY_STORE_NAME).getAll();
+                    req.onsuccess = () => {
+                        const list = req.result || [];
+                        list.sort((a, b) => b.id - a.id);
+                        resolve(list);
+                    };
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        async function renderHistoryList() {
+            const container = document.getElementById('history-container');
+            const clearBtn = document.getElementById('clear-history-btn');
+            const records = await getAllHistoryRecords();
+
+            if (records.length === 0) {
+                clearBtn.classList.add('hidden');
+                container.innerHTML = `<div class="empty-history">لا توجد مخرجات محفوظة في السجل بعد. عند دمج وحفظ أي ملف، سيظهر هنا كمرجع دائم لك.</div>`;
+                return;
+            }
+
+            clearBtn.classList.remove('hidden');
+            const listDiv = document.createElement('div');
+            listDiv.className = 'history-list';
+
+            records.forEach(rec => {
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                const sourcesText = rec.sourceNames && rec.sourceNames.length > 0
+                    ? `الملفات المدمجة (${rec.sourceNames.length}): ${rec.sourceNames.join(' + ')}`
+                    : '';
+
+                item.innerHTML = `
+                    <div class="history-info">
+                        <div class="history-title">
+                            <span class="file-badge">XLSX</span>
+                            <span>${escapeHtml(rec.fileName)}</span>
+                        </div>
+                        <div class="history-meta">
+                            تاريخ الإنشاء: ${escapeHtml(rec.createdAt)} • ${escapeHtml(rec.modeLabel)} • الأوراق: ${rec.sheetsCount} • الصفوف: ${rec.totalRows}
+                        </div>
+                        ${sourcesText ? `<div class="history-sources" title="${escapeHtml(sourcesText)}">${escapeHtml(sourcesText)}</div>` : ''}
+                    </div>
+                    <div class="history-actions">
+                        <button type="button" class="btn btn-secondary" onclick="loadHistoryPreview(${rec.id})" title="معاينة البيانات في الجدول">
+                            معاينة
+                        </button>
+                        <button type="button" class="btn btn-secondary" style="border-color: var(--primary); color: #34d399;" onclick="reExportHistoryItem(${rec.id})" title="حفظ نسخة جديدة واختيار مكان الحفظ">
+                            حفظ نسخة...
+                        </button>
+                        <button type="button" class="icon-btn del" onclick="deleteHistoryItem(${rec.id})" title="حذف من السجل">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                listDiv.appendChild(item);
+            });
+
+            container.innerHTML = '';
+            container.appendChild(listDiv);
+        }
+
+        async function loadHistoryPreview(id) {
+            const records = await getAllHistoryRecords();
+            const rec = records.find(r => r.id === id);
+            if (!rec || !rec.sheetsSnapshot) return;
+
+            mergedSheetsCache = rec.sheetsSnapshot;
+            document.getElementById('output-name').value = rec.fileName.replace(/\.xlsx$/i, '');
+            document.getElementById('stat-files').textContent = rec.sourceNames ? rec.sourceNames.length : '-';
+            document.getElementById('stat-sheets').textContent = mergedSheetsCache.length;
+            const totalRows = mergedSheetsCache.reduce((sum, s) => sum + s.rows.length, 0);
+            document.getElementById('stat-rows').textContent = totalRows;
+
+            const previewContainer = document.getElementById('preview-container');
+            const previewTable = document.getElementById('preview-table');
+            const saveBtn = document.getElementById('merge-save-btn');
+
+            saveBtn.disabled = false;
+            previewContainer.classList.remove('hidden');
+            document.getElementById('preview-caption').textContent = `معاينة من السجل المحفوظ للملف "${rec.fileName}" (أول 40 صف):`;
+
+            const firstSheet = mergedSheetsCache[0];
+            const sampleRows = firstSheet.rows.slice(0, 40);
+            let maxCols = 0;
+            sampleRows.forEach(r => { if (r.length > maxCols) maxCols = r.length; });
+
+            let html = '';
+            sampleRows.forEach((row, rIdx) => {
+                html += '<tr>';
+                for (let c = 0; c < maxCols; c++) {
+                    const cellVal = row[c] !== undefined && row[c] !== null ? row[c] : '';
+                    html += rIdx === 0
+                        ? `<th>${escapeHtml(cellVal || `عمود ${c + 1}`)}</th>`
+                        : `<td>${escapeHtml(cellVal)}</td>`;
+                }
+                html += '</tr>';
+            });
+            previewTable.innerHTML = html;
+            previewContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            showToast(`تم تحميل معاينة "${rec.fileName}" من المرجعية.`, 'info');
+        }
+
+        async function reExportHistoryItem(id) {
+            const records = await getAllHistoryRecords();
+            const rec = records.find(r => r.id === id);
+            if (!rec || !rec.sheetsSnapshot) return;
+
+            const xlsxBlob = buildXlsxBlob(rec.sheetsSnapshot);
+            if (typeof window.showSaveFilePicker === 'function') {
+                try {
+                    const fileHandle = await window.showSaveFilePicker({
+                        suggestedName: rec.fileName,
+                        types: [{
+                            description: 'ملف Microsoft Excel (.xlsx)',
+                            accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] }
+                        }]
+                    });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(xlsxBlob);
+                    await writable.close();
+                    showToast(`تم حفظ نسخة من "${fileHandle.name}" في المكان الذي اخترته!`, 'success');
+                    return;
+                } catch (err) {
+                    if (err.name === 'AbortError') return;
+                }
+            }
+
+            const url = URL.createObjectURL(xlsxBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = rec.fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`تم تنزيل "${rec.fileName}" بنجاح!`, 'success');
+        }
+
+        async function deleteHistoryItem(id) {
+            try {
+                const db = await openHistoryDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+                    tx.objectStore(HISTORY_STORE_NAME).delete(id);
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+                await renderHistoryList();
+                showToast('تم حذف العنصر من السجل.', 'info');
+            } catch (e) {}
+        }
+
+        async function clearAllHistory() {
+            try {
+                const db = await openHistoryDB();
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(HISTORY_STORE_NAME, 'readwrite');
+                    tx.objectStore(HISTORY_STORE_NAME).clear();
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = () => reject(tx.error);
+                });
+                await renderHistoryList();
+                showToast('تم مسح سجل المخرجات بالكامل.', 'info');
+            } catch (e) {}
+        }
+
+        // تحميل سجل المخرجات السابقة فور فتح الصفحة
+        window.addEventListener('DOMContentLoaded', () => {
+            renderHistoryList();
+            const currentMonthNum = new Date().getMonth() + 1;
+            const monthSelect = document.getElementById('calc-current-month');
+            if (monthSelect) {
+                monthSelect.value = currentMonthNum;
+            }
+            calculateRemainingBudget();
+        });
+
+        /* ============================================================================
+           8. منطق حاسبة ومتابعة صرف باقي شهور السنة الميلادية
+        ============================================================================ */
+        function calculateRemainingBudget() {
+            const totalBudget = parseFloat(document.getElementById('calc-budget').value) || 0;
+            const totalSpent = parseFloat(document.getElementById('calc-spent').value) || 0;
+            const currentMonth = parseInt(document.getElementById('calc-current-month').value) || 1;
+
+            const remaining = totalBudget - totalSpent;
+            const monthsLeft = Math.max(1, 12 - currentMonth);
+            const monthlyRate = remaining / monthsLeft;
+
+            document.getElementById('res-remaining').textContent = remaining.toLocaleString('ar-EG', { maximumFractionDigits: 2 });
+            document.getElementById('res-months-left').textContent = monthsLeft;
+            document.getElementById('res-monthly-rate').textContent = monthlyRate.toLocaleString('ar-EG', { maximumFractionDigits: 2 });
+
+            const adviceEl = document.getElementById('budget-advice');
+            const spentPercentage = totalBudget > 0 ? (totalSpent / totalBudget) * 100 : 0;
+
+            let adviceText = `نسبة ما تم صرفه حتى الآن: ${spentPercentage.toFixed(1)}% من إجمالي الميزانية. `;
+            if (remaining < 0) {
+                adviceText += `⚠️ تنبيه: لقد تجاوزت إجمالي الميزانية المحددة بمقدار ${Math.abs(remaining).toLocaleString('ar-EG')}!`;
+                adviceEl.style.color = '#f87171';
+            } else if (monthlyRate === 0) {
+                adviceText += `✅ تم استنفاد الميزانية بالكامل أو لا توجد مبالغ متبقية للشهور القادمة.`;
+                adviceEl.style.color = '#f59e0b';
+            } else {
+                adviceText += `💡 لكي تلتزم بما تبقى (${remaining.toLocaleString('ar-EG')})، يفضل ألا يتجاوز معدل صرفك ${monthlyRate.toLocaleString('ar-EG', { maximumFractionDigits: 0 })} شهرياً خلال الـ ${monthsLeft} شهور القادمة.`;
+                adviceEl.style.color = 'var(--text-muted)';
+            }
+            adviceEl.textContent = adviceText;
+        }
+    </script>
+</body>
+</html>
